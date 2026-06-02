@@ -61,4 +61,14 @@ export const agentApi = {
   matchScore: (jobId) => api.post(`/agent/match-score/${jobId}`),
 }
 
+// Employee profile
+export const employeeApi = {
+  getMyProfile: () => api.get('/employees/me'),
+  updateMyProfile: (data) => api.patch('/employees/me', data),
+  // Admin only
+  list: (params) => api.get('/employees/', { params }),
+  get: (empId) => api.get(`/employees/${empId}`),
+  delete: (empId) => api.delete(`/employees/${empId}`),
+}
+
 export default api

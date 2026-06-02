@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Star, FileText, ExternalLink } from 'lucide-react'
-import { jobsApi, applicationsApi, agentApi } from '../api/client'
+import { ArrowLeft, Loader2, Star, FileText, ExternalLink, Pencil, Trash2 } from 'lucide-react'
+import { jobsApi, applicationsApi, agentApi, employeeApi } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import StatusBadge from '../components/StatusBadge'
 
@@ -11,6 +11,8 @@ export default function JobDetailPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'admin'
+  const isEmployee = user?.role === 'employee'
 
   const [coverLetter, setCoverLetter] = useState('')
   const [matchResult, setMatchResult] = useState(null)
@@ -25,6 +27,14 @@ export default function JobDetailPage() {
   const { data: applications = [] } = useQuery({
     queryKey: ['applications'],
     queryFn: () => applicationsApi.list().then((r) => r.data),
+    enabled: !!user,
+  })
+
+  // Load employee profile to check resume availability for AI features
+  const { data: empProfile } = useQuery({
+    queryKey: ['employee-me'],
+    queryFn: () => employeeApi.getMyProfile().then((r) => r.data),
+    enabled: isEmployee,
   })
 
   const existing = applications.find((a) => a.job_id === id)
@@ -32,6 +42,11 @@ export default function JobDetailPage() {
   const apply = useMutation({
     mutationFn: () => applicationsApi.create({ job_id: id }),
     onSuccess: () => qc.invalidateQueries(['applications']),
+  })
+
+  const deleteJob = useMutation({
+    mutationFn: () => jobsApi.delete(id),
+    onSuccess: () => navigate('/jobs'),
   })
 
   const handleCoverLetter = async () => {
@@ -57,6 +72,8 @@ export default function JobDetailPage() {
   if (isLoading) return <div className="text-center py-20 text-gray-400">Loading…</div>
   if (!job) return <div className="text-center py-20 text-gray-400">Job not found</div>
 
+  const hasResume = !!empProfile?.resume_text
+
   return (
     <div className="max-w-3xl space-y-5">
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
@@ -78,7 +95,7 @@ export default function JobDetailPage() {
 
         {(job.salary_min || job.salary_max) && (
           <p className="text-sm text-gray-700">
-            💰 {job.salary_min && `$${job.salary_min.toLocaleString()}`}
+            {job.salary_min && `$${job.salary_min.toLocaleString()}`}
             {job.salary_min && job.salary_max && ' – '}
             {job.salary_max && `$${job.salary_max.toLocaleString()}`} / year
           </p>
@@ -91,14 +108,19 @@ export default function JobDetailPage() {
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">
-          {!existing ? (
-            <button className="btn-primary" onClick={() => apply.mutate()} disabled={apply.isPending}>
-              {apply.isPending ? 'Saving…' : 'Save to Applications'}
-            </button>
-          ) : (
-            <p className="text-sm text-gray-500">Saved · <StatusBadge status={existing.status} /></p>
+          {/* Employee actions */}
+          {isEmployee && (
+            !existing ? (
+              <button className="btn-primary" onClick={() => apply.mutate()} disabled={apply.isPending}>
+                {apply.isPending ? 'Saving…' : 'Save to Applications'}
+              </button>
+            ) : (
+              <p className="text-sm text-gray-500">Saved · <StatusBadge status={existing.status} /></p>
+            )
           )}
-          {user?.resume_text && (
+
+          {/* AI features (employee with resume) */}
+          {isEmployee && hasResume && (
             <>
               <button className="btn-secondary" onClick={handleCoverLetter} disabled={loadingCL}>
                 {loadingCL ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
@@ -107,6 +129,20 @@ export default function JobDetailPage() {
               <button className="btn-secondary" onClick={handleMatchScore} disabled={loadingMatch}>
                 {loadingMatch ? <Loader2 size={14} className="animate-spin" /> : <Star size={14} />}
                 Match Score
+              </button>
+            </>
+          )}
+
+          {/* Admin actions */}
+          {isAdmin && (
+            <>
+              <button
+                className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => { if (window.confirm('Delete this job?')) deleteJob.mutate() }}
+                disabled={deleteJob.isPending}
+              >
+                <Trash2 size={14} />
+                {deleteJob.isPending ? 'Deleting…' : 'Delete Job'}
               </button>
             </>
           )}

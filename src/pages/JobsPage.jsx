@@ -1,14 +1,20 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, Zap } from 'lucide-react'
 import { jobsApi } from '../api/client'
+import { useAuthStore } from '../store/authStore'
 import JobCard from '../components/JobCard'
 
 export default function JobsPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
+  const isEmployee = user?.role === 'employee'
+
   const [search, setSearch] = useState('')
+  const [matchSkills, setMatchSkills] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     title: '', company: '', location: '', description: '',
@@ -16,8 +22,14 @@ export default function JobsPage() {
   })
 
   const { data: jobs = [], isLoading } = useQuery({
-    queryKey: ['jobs', search],
-    queryFn: () => jobsApi.list({ q: search || undefined }).then((r) => r.data),
+    queryKey: ['jobs', search, matchSkills],
+    queryFn: () =>
+      jobsApi
+        .list({
+          q: search || undefined,
+          match_skills: matchSkills && isEmployee ? true : undefined,
+        })
+        .then((r) => r.data),
   })
 
   const createJob = useMutation({
@@ -42,9 +54,29 @@ export default function JobsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
-        <button className="btn-primary" onClick={() => setShowForm(true)}>
-          <Plus size={16} /> Add Job
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Match My Skills toggle — employees only */}
+          {isEmployee && (
+            <button
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                matchSkills
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+              onClick={() => setMatchSkills((v) => !v)}
+              title="Show only jobs matching your skills"
+            >
+              <Zap size={15} />
+              Match My Skills
+            </button>
+          )}
+          {/* Add Job — admins only */}
+          {isAdmin && (
+            <button className="btn-primary" onClick={() => setShowForm(true)}>
+              <Plus size={16} /> Add Job
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search */}
@@ -58,8 +90,8 @@ export default function JobsPage() {
         />
       </div>
 
-      {/* Add Job Modal */}
-      {showForm && (
+      {/* Add Job Modal — admin only */}
+      {showForm && isAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-5 py-4">
@@ -134,7 +166,11 @@ export default function JobsPage() {
         <div className="text-sm text-gray-400 text-center py-12">Loading…</div>
       ) : jobs.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          <p>No jobs found. Add your first job listing.</p>
+          {matchSkills
+            ? 'No jobs match your skills. Update your profile to add skills.'
+            : isAdmin
+            ? 'No jobs found. Add your first job listing.'
+            : 'No jobs found.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
