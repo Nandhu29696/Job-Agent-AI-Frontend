@@ -6,7 +6,12 @@ import './index.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 1000 * 60 * 5, retry: 1 },
+    queries: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      // Don't hammer the API on auth/permission/validation errors
+      retry: (count, err) => count < 1 && ![400, 401, 402, 403, 404, 422].includes(err?.response?.status),
+    },
   },
 })
 
@@ -15,5 +20,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <QueryClientProvider client={queryClient}>
       <App />
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 )
