@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           // In Docker this is http://backend:8000
-          target: env.VITE_PROXY_TARGET || 'http://localhost:8002',
+          target: env.VITE_PROXY_TARGET || 'http://187.127.166.46:8002',
           changeOrigin: true,
         },
       },
