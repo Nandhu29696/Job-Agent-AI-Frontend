@@ -73,12 +73,30 @@ const patch = (url, body) => api.patch(url, body).then((r) => r.data)
 const put = (url, body) => api.put(url, body).then((r) => r.data)
 const del = (url) => api.delete(url).then((r) => r.data)
 
+async function login({ email, password }) {
+  try {
+    return await post('/auth/login', { email, password })
+  } catch (err) {
+    const details = err.response?.data?.detail
+    const missingFormCredentials = Array.isArray(details) &&
+      ['username', 'password'].every((field) =>
+        details.some((item) => item.type === 'missing' && item.loc?.includes(field)),
+      )
+    if (err.response?.status !== 422 || !missingFormCredentials) throw err
+
+    const body = new URLSearchParams({ username: email, password })
+    return post('/auth/login', body, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+  }
+}
+
 export const authApi = {
   config: () => get('/auth/config'),
   register: (d) => post('/auth/register', d),
   verifyEmail: (d) => post('/auth/verify-email', d),
   resendOtp: (email, purpose = 'verify_email') => post(`/auth/resend-otp?purpose=${purpose}`, { email }),
-  login: (d) => post('/auth/login', d),
+  login,
   logout: () => post('/auth/logout'),
   logoutAll: () => post('/auth/logout-all'),
   forgotPassword: (email) => post('/auth/forgot-password', { email }),
