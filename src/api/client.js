@@ -159,7 +159,13 @@ export const resumeAiApi = {
 }
 
 export const templatesApi = {
-  list: (params) => get('/templates/', params),
+  list: async (params) => {
+    const data = await get('/templates/', params)
+    if (!Array.isArray(data)) {
+      throw new TypeError('Expected GET /templates/ to return a JSON array.')
+    }
+    return data
+  },
   get: (id) => get(`/templates/${id}`),
 }
 

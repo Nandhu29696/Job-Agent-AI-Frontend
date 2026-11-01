@@ -23,7 +23,10 @@ const COUNTRIES = ['🇺🇸 US', '🇬🇧 UK', '🇨🇦 Canada', '🇩🇪 Ge
 export default function LandingPage() {
   const status = useAuthStore((s) => s.status)
   const authed = status === 'authenticated'
-  const { data: templates = [] } = useQuery({ queryKey: ['templates'], queryFn: () => templatesApi.list() })
+  const { data: templates = [], isError: templatesError } = useQuery({
+    queryKey: ['templates'],
+    queryFn: () => templatesApi.list(),
+  })
   const { data: plans } = useQuery({ queryKey: ['plans'], queryFn: paymentsApi.plans })
   const showcase = [
     templates.find((t) => t.slug === 'tech-sidebar'),
@@ -139,6 +142,11 @@ export default function LandingPage() {
             </div>
             <Link to={authed ? '/templates' : '/register'} className="btn-secondary">Browse all <ArrowRight size={16} /></Link>
           </div>
+          {templatesError && (
+            <p className="mt-6 text-sm text-red-600" role="alert">
+              Templates couldn&apos;t be loaded. Please try again later.
+            </p>
+          )}
           <div className="mt-10 grid grid-cols-2 gap-5 lg:grid-cols-4">
             {showcase.map((t) => (
               <div key={t.id} className="group">
